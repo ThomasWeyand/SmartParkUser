@@ -23,9 +23,10 @@ const maps = [
 
 const generateRandomPins = (count: number, mapWidth: number, mapHeight: number, pinSize: number) => {
   const pins = [];
+  const padding = 40;
   for (let i = 0; i < count; i++) {
-    const x = Math.random() * (mapWidth - pinSize);
-    const y = Math.random() * (mapHeight - pinSize);
+    const x = padding + Math.random() * (mapWidth - pinSize - 2 * padding);
+    const y = padding + Math.random() * (mapHeight - pinSize - 2 * padding);
     pins.push({ x, y });
   }
   return pins;
