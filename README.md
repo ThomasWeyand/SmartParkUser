@@ -60,9 +60,3 @@ npx react-native run-android
 - https://github.com/RodolfoGaspar/FIAP_MBA_EngSW_FrontEndEngineering_95AOJ/tree/main
 
 ---
-
-## 🔧 Front React Web para envio das notificações
-- https://smartpark-frontend.vercel.app
-  
-  ---
-
