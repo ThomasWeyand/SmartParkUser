@@ -2,8 +2,8 @@
 
 ## 📝 Resumo da Aplicação
 
-O **SmartPark** é um aplicativo mobile desenvolvido em React Native que permite aos usuários **visualizar, reservar e acompanhar vagas de estacionamento** em tempo real.  
-A solução é integrada com um backend via **WebSocket**, permitindo notificações imediatas sobre mudanças nas vagas (adição, atualização e remoção).  
+O **SmartPark** é um aplicativo mobile desenvolvido em React Native que permite aos usuários **companhar vagas de estacionamento** em tempo real.  
+A solução é integrada com um backend via **WebSocket**, permitindo notificações imediatas sobre mudanças nas vagas (adição, atualização e remoção).
 Ideal para motoristas urbanos que buscam praticidade e agilidade ao encontrar uma vaga disponível.
 
 ---
