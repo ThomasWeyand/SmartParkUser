@@ -121,14 +121,49 @@ const ParkingListScreen = ({ navigation }: ParkingListScreenProps) => {
     });
 
     socket.on('notificacaoAlteracaoDeVaga', (vaga) => {
-      scrollToVaga(vaga.id);
-      setParkingSpots((prev) =>
-        prev.map((item) => (item.id === vaga.id ? newOrUpdateVagaToParkingSpot(vaga) : item))
-      );
+      setParkingSpots((prev) => {
+        const index = prev.findIndex((item) => item.id === vaga.id);
+
+        if (index !== -1) {
+          flatListRef.current?.scrollToIndex({
+            index,
+            animated: true,
+            viewPosition: 0.5,
+          });
+
+          setTimeout(() => {
+            setParkingSpots((prevList) =>
+              prevList.map((item) =>
+                item.id === vaga.id ? newOrUpdateVagaToParkingSpot(vaga) : item
+              )
+            );
+          }, 750);
+        }
+
+        return prev;
+      });
     });
 
-    socket.on('notificacaoExcluirVaga', (id) => {
-      setParkingSpots((prev) => prev.filter((item) => item.id !== id));
+    socket.on('notificacaoExcluirVaga', (vaga) => {
+      setParkingSpots((prev) => {
+        const index = prev.findIndex((item) => item.id === vaga.id);
+
+        if (index !== -1) {
+          flatListRef.current?.scrollToIndex({
+            index,
+            animated: true,
+            viewPosition: 0.5,
+          });
+
+          setTimeout(() => {
+            setParkingSpots((prevList) =>
+              prevList.filter((item) => item.id !== vaga.id)
+            );
+          }, 1000);
+        }
+
+        return prev;
+      });
     });
 
     return () => {
@@ -141,17 +176,6 @@ const ParkingListScreen = ({ navigation }: ParkingListScreenProps) => {
   }, []);
 
   const flatListRef = useRef<FlatList>(null);
-
-  const scrollToVaga = (id: string) => {
-    const index = parkingSpots.findIndex((item) => item.id === id);
-    if (index >= 0) {
-      flatListRef.current?.scrollToIndex({
-        index,
-        viewPosition: 0.5,
-        animated: true,
-      });
-    }
-  };
 
   const renderItem = ({ item }: { item: ParkingSpot }) => (
     <TouchableOpacity

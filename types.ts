@@ -29,3 +29,7 @@ export type VagaSocketResponse = {
   idClient: string;
   valorHora: number;
 }
+
+export type ExcludeSocketResponse = {
+  id: string;
+}
