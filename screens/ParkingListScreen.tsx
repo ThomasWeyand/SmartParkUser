@@ -1,22 +1,122 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { View, Text, FlatList, TouchableOpacity } from 'react-native';
-import type { ParkingSpot } from '../types';
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Button } from 'react-native';
+import type { ParkingSpot, VagasResponse, VagaSocketResponse } from '../types';
+import { InfoExtraPicker } from '../InfoExtraPicker'
+import { connectSocket, disconnectSocket, socket } from '../services/socket';
 
 type RootStackParamList = {
   'Lista de Vagas': undefined;
   Detalhes: { item: ParkingSpot };
 };
 
+const VAGAS_API_URL = 'https://vagasapi-production.up.railway.app/v1/vagas';
+const statusDescricaoMap: Record<string, string> = {
+  DISPONIVEL: 'Disponível',
+  BLOQUEADA: 'Bloqueada',
+  RESERVADA: 'Reservada',
+};
+const capitalize = (text: string) =>
+  text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+const statusVagaMap: Record<number, string> = {
+  0: 'DISPONIVEL',
+  1: 'RESERVADA',
+  2: 'BLOQUEADA'
+};
+const tipoVagaMap: Record<number, string> = {
+  0: 'Coberta',
+  1: 'Descoberta',
+};
+
+const picker = new InfoExtraPicker();
+
+const newOrUpdateVagaToParkingSpot = (vaga: VagaSocketResponse): ParkingSpot => {
+  const statusDescricao = statusVagaMap[vaga.status] ?? 'Indefinido';
+  const info = picker.pick();
+
+  return {
+    id: vaga.id,
+    descricao: info.title,
+    tipo: capitalize(tipoVagaMap[vaga.tipoVaga] ?? 'Desconhecida'),
+    status: statusDescricaoMap[statusDescricao] || capitalize(statusDescricao),
+    preco: vaga.valorHora,
+    dataInicioDisponivel: new Date().toISOString(),
+    dataFimDisponivel: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+    fullDesc: info.description,
+  };
+};
+
+
 type ParkingListScreenProps = NativeStackScreenProps<RootStackParamList, 'Lista de Vagas'>;
+
+const mapVagaToParkingSpot = (vaga: VagasResponse): ParkingSpot => {
+  const info = picker.pick();
+
+  return {
+    id: vaga.id,
+    descricao: info.title,
+    tipo: capitalize(vaga.tipoVagaDescricao),
+    status: statusDescricaoMap[vaga.statusDescricao] || capitalize(vaga.statusDescricao),
+    preco: vaga.valorHora,
+    dataInicioDisponivel: new Date().toISOString(),
+    dataFimDisponivel: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+    fullDesc: info.description,
+  };
+};
 
 const ParkingListScreen = ({ navigation }: ParkingListScreenProps) => {
   const [parkingSpots, setParkingSpots] = useState<ParkingSpot[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<boolean>(false);
+  const fetchInitialData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(false);
+
+      const response = await fetch(VAGAS_API_URL);
+      const json = await response.json();
+      const spots = (json.vagas as VagasResponse[]).map(mapVagaToParkingSpot);
+
+      setParkingSpots(spots);
+    } catch (error) {
+      console.error('Erro ao buscar vagas:', error);
+      setLoading(false)
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const data: ParkingSpot[] = require('../data/parkingSpots.json');
-    setParkingSpots(data);
+    fetchInitialData();
+  }, [fetchInitialData]);
+
+  useEffect(() => {
+    connectSocket();
+
+    socket.on('notificacaoNovaVaga', (vaga) => {
+      setParkingSpots((prev) => [...prev, newOrUpdateVagaToParkingSpot(vaga)]);
+    });
+
+    socket.on('notificacaoAlteracaoDeVaga', (vaga) => {
+      setParkingSpots((prev) =>
+        prev.map((item) => (item.id === vaga.id ? newOrUpdateVagaToParkingSpot(vaga) : item))
+      );
+    });
+
+    socket.on('notificacaoExcluirVaga', (vagaId) => {
+      setParkingSpots((prev) => prev.filter((item) => item.id !== vagaId));
+    });
+
+    return () => {
+      socket.off('notificacaoNovaVaga');
+      socket.off('notificacaoAlteracaoDeVaga');
+      socket.off('notificacaoExcluirVaga');
+      disconnectSocket();
+    };
+
   }, []);
+
 
   const renderItem = ({ item }: { item: ParkingSpot }) => (
     <TouchableOpacity
@@ -52,8 +152,9 @@ const ParkingListScreen = ({ navigation }: ParkingListScreenProps) => {
         <View style={{ flexDirection: 'row', marginTop: 2 }}>
           <Text style={{ color: '#777' }}>{item.tipo} - </Text>
           <Text style={{
-            color: item.status.toLowerCase() === 'ocupado' ? 'red' :
-                   item.status.toLowerCase() === 'disponível' ? 'green' : '#777',
+            color: item.status.toLowerCase() === 'reservada' ? 'red' :
+              item.status.toLowerCase() === 'bloqueada' ? 'red' :
+                item.status.toLowerCase() === 'disponível' ? 'green' : '#777',
             fontWeight: 'bold',
           }}>
             {item.status}
@@ -63,6 +164,23 @@ const ParkingListScreen = ({ navigation }: ParkingListScreenProps) => {
       <Text style={{ color: '#555', fontWeight: '600' }}>R$ {item.preco.toFixed(2)}</Text>
     </TouchableOpacity>
   );
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#007bff" />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text>Erro ao carregar as vagas.</Text>
+        <Button title="Tentar novamente" onPress={fetchInitialData} />
+      </View>
+    );
+  }
 
   return (
     <FlatList

@@ -73,3 +73,29 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# VSCode
+.vscode/
+
+# Logs
+*.log
+
+# Environment config
+.env
+.env.*
+*.env.local
+
+# Watchman
+.watchmanconfig
+
+# Temporary / backup files
+*.tmp
+*.swp
+*.swo
+
+# NPM pack artifacts
+*.tgz
+
+# macOS metadata (caso não esteja incluído em subpastas)
+**/.DS_Store
+

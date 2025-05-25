@@ -24,7 +24,8 @@ const ParkingDetailsInfo = ({ fullDesc, dataInicioDisponivel, dataFimDisponivel,
     // Define cor e texto do botão conforme status
     const statusConfig: Record<string, { text: string; backgroundColor: string }> = {
         Disponível: { text: 'Disponível', backgroundColor: '#4caf50' },
-        Ocupado: { text: 'Ocupado', backgroundColor: '#f44336' },
+        Reservada: { text: 'Reservada', backgroundColor: '#f44336' },
+        Bloqueada: { text: 'Bloqueada', backgroundColor: '#f44336' },
     };
 
     const { text: buttonText, backgroundColor } = statusConfig[status] || { text: status, backgroundColor: '#ccc' };
