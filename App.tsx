@@ -23,7 +23,7 @@ export default function App() {
           headerRight: () => (
             <Image
               source={require('./assets/icons/smartpark_logo.png')}
-              style={{ width: 64, height: 64, marginRight: 96, marginBottom:4 }}
+              style={{ width: 64, height: 64, marginRight: 24, marginBottom:4 }}
               resizeMode="contain"
             />
           ),

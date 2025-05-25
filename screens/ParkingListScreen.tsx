@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Button } from 'react-native';
 import type { ParkingSpot, VagasResponse, VagaSocketResponse } from '../types';
@@ -41,7 +41,7 @@ const newOrUpdateVagaToParkingSpot = (vaga: VagaSocketResponse): ParkingSpot => 
     status: statusDescricaoMap[statusDescricao] || capitalize(statusDescricao),
     preco: vaga.valorHora,
     dataInicioDisponivel: new Date().toISOString(),
-    dataFimDisponivel: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+    dataFimDisponivel: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
     fullDesc: info.description,
   };
 };
@@ -59,7 +59,7 @@ const mapVagaToParkingSpot = (vaga: VagasResponse): ParkingSpot => {
     status: statusDescricaoMap[vaga.statusDescricao] || capitalize(vaga.statusDescricao),
     preco: vaga.valorHora,
     dataInicioDisponivel: new Date().toISOString(),
-    dataFimDisponivel: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+    dataFimDisponivel: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
     fullDesc: info.description,
   };
 };
@@ -75,12 +75,19 @@ const ParkingListScreen = ({ navigation }: ParkingListScreenProps) => {
 
       const response = await fetch(VAGAS_API_URL);
       const json = await response.json();
-      const spots = (json.vagas as VagasResponse[]).map(mapVagaToParkingSpot);
+      const spotsFromApi = (json.vagas as VagasResponse[]).map(mapVagaToParkingSpot);
 
-      setParkingSpots(spots);
+      setParkingSpots((prevSpots) => {
+        const mapCurrent = new Map(prevSpots.map(spot => [spot.id, spot]));
+
+        spotsFromApi.forEach(spot => {
+          mapCurrent.set(spot.id, spot);
+        });
+
+        return Array.from(mapCurrent.values());
+      });
     } catch (error) {
       console.error('Erro ao buscar vagas:', error);
-      setLoading(false)
       setError(true);
     } finally {
       setLoading(false);
@@ -95,17 +102,33 @@ const ParkingListScreen = ({ navigation }: ParkingListScreenProps) => {
     connectSocket();
 
     socket.on('notificacaoNovaVaga', (vaga) => {
-      setParkingSpots((prev) => [...prev, newOrUpdateVagaToParkingSpot(vaga)]);
+      setParkingSpots((prev) => {
+        const exists = prev.some((item) => item.id === vaga.id);
+        const updatedList = exists
+          ? prev.map((item) =>
+            item.id === vaga.id ? newOrUpdateVagaToParkingSpot(vaga) : item
+          )
+          : [...prev, newOrUpdateVagaToParkingSpot(vaga)];
+
+        if (!exists) {
+          setTimeout(() => {
+            flatListRef.current?.scrollToEnd({ animated: true });
+          }, 150);
+        }
+
+        return updatedList;
+      });
     });
 
     socket.on('notificacaoAlteracaoDeVaga', (vaga) => {
+      scrollToVaga(vaga.id);
       setParkingSpots((prev) =>
         prev.map((item) => (item.id === vaga.id ? newOrUpdateVagaToParkingSpot(vaga) : item))
       );
     });
 
-    socket.on('notificacaoExcluirVaga', (vagaId) => {
-      setParkingSpots((prev) => prev.filter((item) => item.id !== vagaId));
+    socket.on('notificacaoExcluirVaga', (id) => {
+      setParkingSpots((prev) => prev.filter((item) => item.id !== id));
     });
 
     return () => {
@@ -117,6 +140,18 @@ const ParkingListScreen = ({ navigation }: ParkingListScreenProps) => {
 
   }, []);
 
+  const flatListRef = useRef<FlatList>(null);
+
+  const scrollToVaga = (id: string) => {
+    const index = parkingSpots.findIndex((item) => item.id === id);
+    if (index >= 0) {
+      flatListRef.current?.scrollToIndex({
+        index,
+        viewPosition: 0.5,
+        animated: true,
+      });
+    }
+  };
 
   const renderItem = ({ item }: { item: ParkingSpot }) => (
     <TouchableOpacity
@@ -184,6 +219,7 @@ const ParkingListScreen = ({ navigation }: ParkingListScreenProps) => {
 
   return (
     <FlatList
+      ref={flatListRef}
       data={parkingSpots}
       renderItem={renderItem}
       keyExtractor={(item) => item.id}
